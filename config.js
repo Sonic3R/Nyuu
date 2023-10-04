@@ -16,7 +16,7 @@ servers: [
 		// non-SSL: https://nodejs.org/api/net.html#net_socket_connect_options_connectlistener
 		// SSL: https://nodejs.org/api/tls.html#tls_tls_connect_options_callback
 		connect: { // connection options
-			host: 'localhost',
+			host: '',
 			port: null, // null => if server.secure, port=563, else, port=119
 			
 			// SSL options
@@ -32,10 +32,10 @@ servers: [
 		connTimeout: 30000, // 30 seconds
 		postTimeout: 120000, // 2 minutes
 		reconnectDelay: 15000, // 15 seconds
-		connectRetries: 1,
+		connectRetries: 5,
 		requestRetries: 5, // how many times to retry an interrupted request
-		retryBadResp: false, // enable retrying if a bad response is received
-		postRetries: 1, // how many times to retry if server returns 441 response to posted article
+		retryBadResp: true, // enable retrying if a bad response is received
+		postRetries: 5, // how many times to retry if server returns 441 response to posted article
 		postRetryDelay: 0, // delay post retries (above option) by this many milliseconds
 		postFailReconnect: false, // treat post failure like a connection-level error; postRetries and postRetryDelay settings are ignored if true
 		errorTeardown: false, // false = gracefully close bad connections, true = forcefully destroy them
@@ -54,8 +54,8 @@ servers: [
 		},
 		throttleChunkTime: 2000, // if throttling is enabled, uploadChunkSize != 0 and it would take longer than this amount of milliseconds to send a chunk, at specified throttle rate, reduce the chunk size to a 4KB multiple to suit; set this to 0 to disable
 		
-		postConnections: 3, // number of connections for posting
-		checkConnections: 0, // number of connections used for checking
+		postConnections: 10, // number of connections for posting
+		checkConnections: 10, // number of connections used for checking
 		// TODO: consider ability to reuse posting connections for checking?
 		//ulConnReuse: false, // use uploading connections for post checks; only works if checking the same server as the one being uploaded to
 	},
@@ -68,9 +68,9 @@ connectionThreads: 0, // number of threads to distribute posting connections ove
 
 /** Post Check Options **/
 check: {
-	delay: 5000, // (in ms) initial delay for performing check
-	recheckDelay: 30000, // (in ms) delay retries by this amount of time; not used if tries<2
-	tries: 2, // number of check attempts; should be 0 if not performing post checks
+	delay: 1000, // (in ms) initial delay for performing check
+	recheckDelay: 3000, // (in ms) delay retries by this amount of time; not used if tries<2
+	tries: 5, // number of check attempts; should be 0 if not performing post checks
 	group: '', // if set, will switch checking connections to this group; some servers seem to want one when STATing posts, otherwise they fail to show them; if set, should be a valid group you never post to, eg "bit.test"
 	postRetries: 1, // maximum number of post retry attempts after a post check failure; set to 0 to never retry posting
 	queueCache: null, // maximum number of cached posts in the post-check queue; if this number is exceeded, posts are dropped from cache if possible; if posts cannot be dropped from cache, this value acts like queueBuffer and will pause uploading when full. Caching is only useful if posts need to be re-posted due to a failure condition, in which case, uncached posts need to be re-generated off disk; default 5 or min(connections*8,100) if unseekable streams are used
@@ -82,7 +82,7 @@ maxPostErrors: 0, // if > 0, maximum number of failed articles to allow before a
 useLazyConnect: false, // if true, will only create connections when needed, rather than pre-emptively doing so
 
 /** Post/Article Options **/
-articleSize: 716800, // in bytes, must be a multiple of 2
+articleSize: 768000, // in bytes, must be a multiple of 2
 bytesPerLine: 128, // in bytes, note: as per yEnc specifications, it's possible to exceed this number
 articleEncoding: 'utf8', // must be an "8-bit charset" (i.e. not utf16 or the like)
 yencName: null, // set this to a function to overwrite/customise the 'name' field in the yEnc header; arguments are same as those for 'postHeaders' functions, with the 'part' argument always being 1
@@ -100,14 +100,14 @@ postHeaders: {
 	// required headers
 	'Message-ID': null, // default: auto-generated
 	Subject: null, // if null, a default Subject is used
-	From: (process.env.USER || process.env.USERNAME || 'user').replace(/[<>]/g, '') + ' <' + ((process.env.USER || process.env.USERNAME || '').replace(/[" (),:;<>@]/g, '') || 'user') + '@' + (require('os').hostname().replace(/[^a-z0-9_.\-]/ig, '').match(/^([a-z0-9][a-z0-9\-]*\.)*[a-z0-9][a-z0-9\-]*$/i) || ['nyuu.uploader'])[0].replace(/^([^.])+$/, '$1.localdomain') + '>', // 'A Poster <a.poster@example.com>'
-	Newsgroups: 'alt.binaries.test', // comma seperated list
+	From: function(filenum, filenumtotal, filename, size, part, parts) { var groups= ['Luffy <eating@laughtale.op>','Zoro <lost@sea.op>','Nami <robbing@goldisland.op>','Sanji <cooking@sunny.op>','Usopp <shotting@kaido.op>','Chopper <screaming@luffy.op>','Robin <soaking@beach.op>','Franky <fixing@egghead.op>','Brook <yohoho@laboon.op>','Jinbei <staring@bigmom.op>']; i = Math.floor(Math.random() * (groups.length)) ; return groups[i] },
+	Newsgroups: function(filenum, filenumtotal, filename, size, part, parts) { var groups= ['alt.binaries.bloaf','alt.binaries.etc','alt.binaries.frogs','alt.binaries.misc','alt.binaries.multimedia','alt.binaries.usenet2day','alt.binaries.aquaria','alt.binaries.u-4all','alt.binaries.mom','alt.binaries.superman','alt.binaries.comp','alt.binaries.ath','alt.binaries.goat','alt.binaries.ratcave','alt.binaries.ratcave','alt.binaries.amazing','alt.binaries.insiderz','alt.binaries.nzb','alt.binaries.x']; i = Math.floor(Math.random() * (groups.length)) ; return groups[i] }, // comma seperated list
 	Date: null, // if null, value is auto-generated from when post is first generated
 	Path: '',
 	
 	// optional headers
 	//Organization: '',
-	'User-Agent': 'Nyuu/' + (global.__nyuu_pkg || require('./package.json')).version,
+	//'User-Agent': 'Nyuu/' + (global.__nyuu_pkg || require('./package.json')).version,
 	// nice list of headers: https://www.cotse.net/privacy/newsgroup_header.htm or http://www.cs.tut.fi/~jkorpela/headers.html
 },
 // postHeaders can also, itself, be a function, in which case, it is called with (filenum, filenumtotal, filename, size, part [always 1], parts) as arguments, and must return an object like the above
